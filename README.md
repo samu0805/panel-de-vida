@@ -109,3 +109,7 @@ npm run build   # compilación de producción
 npx tsc --noEmit
 npx eslint src
 ```
+
+## Licencia
+
+[MIT](LICENSE). Proyecto personal; úsalo como referencia con libertad.
