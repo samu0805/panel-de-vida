@@ -1,115 +1,129 @@
-# Panel de Vida
+# Panel de Vida ("Life Dashboard")
 
-Aplicación web personal de **un solo usuario**: una página que junta tu calendario de Google, tu correo (solo del Tec), tus tareas y un resumen por correo cada mañana.
+**Language:** English · [Español](README.es.md)
 
-- **Solo lectura:** la app nunca envía, borra ni modifica correos ni eventos.
-- **Stack:** Next.js (App Router) + TypeScript, Tailwind + shadcn/ui, Supabase (Postgres, Auth, RLS), Google Calendar/Gmail API, Anthropic API, Resend y Vercel Cron.
+A personal, **single-user** web app: one page that pulls together my Google Calendar, my university email (filtered), my tasks, and a morning summary sent to my inbox every day.
 
-## Cómo funciona
+- **Read-only by design:** the app never sends, deletes or modifies emails or calendar events.
+- **Stack:** Next.js (App Router) + TypeScript, Tailwind CSS + shadcn/ui, Supabase (Postgres, Auth, Row Level Security), Google Calendar and Gmail APIs, Anthropic API, Resend, Vercel Cron.
+- The UI is in Spanish.
 
-| Sección | Qué hace |
+## Features
+
+| Section | What it does |
 |---|---|
-| Hoy en una línea | Reuniones, horas libres y tu tarea más importante |
-| Agenda | Línea de tiempo de hoy o de 7 días, con conflictos, márgenes de menos de 15 min y bloques libres de más de 45 min. Lee **todos** los calendarios de `calendarList` (incluidos los suscritos) |
-| Correos | Hilos recientes **dentro del filtro** `GMAIL_QUERY_FILTER`, clasificados con Claude y guardados para no reclasificar |
-| Tareas | CRUD con captura en lenguaje natural ("pagar luz el viernes") |
-| Alertas | Cruza correos, agenda y tareas |
-| Resumen matutino | Cron diario que genera el resumen con Claude y lo envía con Resend |
+| Today in one line | Meetings, free hours and your most important task, in a single sentence |
+| Agenda | Vertical timeline for today or the next 7 days. Highlights overlaps, gaps under 15 min, and free blocks over 45 min. Reads **every** calendar in `calendarList`, including subscribed ones |
+| Email | Recent threads **restricted by a mandatory Gmail query filter**, classified by Claude (reply today / waiting for reply / informational) and cached so threads are not classified twice |
+| Tasks | Full CRUD, plus one-line capture in natural language ("pay electricity on Friday") parsed by Claude |
+| Alerts | Cross-source checks: emails mentioning a date that is not on the calendar, meetings without link or description, tasks due today without enough free time, days with more than 6 h of meetings |
+| Morning brief | A daily cron job generates a short summary with Claude and emails it via Resend. A button lets you trigger it manually |
 
-## Instalación local
+## Architecture
 
-Requisitos: Node 20 o superior, npm y Git.
+```
+Browser ── Next.js (Vercel) ──┬─ Supabase Auth (Google sign-in, single allowed email)
+                              ├─ Supabase Postgres (RLS on every table)
+                              ├─ Google Calendar + Gmail APIs (read-only, OAuth)
+                              ├─ Anthropic API (classification, task parsing, brief)
+                              └─ Resend (brief delivery)
+Vercel Cron ── /api/cron/daily-brief (protected by CRON_SECRET)
+```
 
-```powershell
+## Security notes
+
+- Google scopes are **read-only** (`calendar.readonly`, `gmail.readonly`).
+- The Google refresh token is stored **encrypted** (AES-256-GCM) in `integrations`, protected by RLS.
+- Every table has **Row Level Security**: a row is only visible to its owner (`user_id = auth.uid()`).
+- Gmail is always queried with `GMAIL_QUERY_FILTER` in the `q` parameter, and nothing is read if the variable is missing. Google's `gmail.readonly` scope cannot be restricted by sender or label, so this limit is enforced in code.
+- `/api/cron/daily-brief` validates `CRON_SECRET` on every run (constant-time comparison).
+- No keys in the code: everything lives in environment variables. Only `.env.example` (empty placeholders) is committed.
+- Email contents are treated as untrusted data in every prompt (prompt-injection hardening), and HTML in the brief email is escaped.
+
+## Local setup
+
+Requirements: Node 20+, npm, Git.
+
+```bash
 npm install
-copy .env.example .env.local   # luego rellena los valores (ver tabla)
+cp .env.example .env.local   # then fill in the values (see table)
 npm run dev
 ```
 
-Abre http://localhost:3000.
+Open http://localhost:3000.
 
-## Variables de entorno
+## Environment variables
 
-| Variable | Descripción |
+| Variable | Description |
 |---|---|
-| `NEXT_PUBLIC_SUPABASE_URL` | URL del proyecto de Supabase |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Llave anon/publishable de Supabase |
-| `SUPABASE_SERVICE_ROLE_KEY` | Llave service_role/secret (**solo servidor**, la usa el cron) |
-| `ALLOWED_EMAIL` | Único correo con acceso a la app |
-| `APP_TIMEZONE` | Zona horaria, p. ej. `Asia/Hong_Kong` |
-| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Credenciales OAuth de Google Cloud |
-| `GOOGLE_REDIRECT_URI` | `https://TU-DOMINIO/api/google/callback` (en local: `http://localhost:3000/api/google/callback`) |
-| `ENCRYPTION_KEY` | 32 bytes en base64 para cifrar el refresh token. Genérala con: `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"` |
-| `GMAIL_QUERY_FILTER` | Filtro obligatorio de Gmail, p. ej. `(from:tec.mx OR to:tu@tec.mx OR label:Tec)`. Si falta, no se lee nada |
-| `PRIORITY_SENDERS` | (Opcional) remitentes prioritarios separados por coma |
-| `ANTHROPIC_API_KEY` | Llave de la API de Anthropic |
-| `ANTHROPIC_MODEL` | Modelo (por defecto `claude-sonnet-5-5`) |
-| `RESEND_API_KEY` | Llave de Resend |
-| `BRIEF_TO_EMAIL` | Correo que recibe el resumen |
-| `BRIEF_FROM` | (Opcional) remitente; por defecto `Panel de Vida <onboarding@resend.dev>` |
-| `CRON_SECRET` | Secreto largo y aleatorio que protege `/api/cron/daily-brief` |
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon/publishable key |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase service_role/secret key (**server only**, used by the cron job) |
+| `ALLOWED_EMAIL` | The only email allowed to sign in |
+| `APP_TIMEZONE` | IANA time zone, e.g. `Asia/Hong_Kong` |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Google Cloud OAuth credentials |
+| `GOOGLE_REDIRECT_URI` | `https://YOUR-DOMAIN/api/google/callback` (locally: `http://localhost:3000/api/google/callback`) |
+| `ENCRYPTION_KEY` | 32 random bytes, base64. Generate with `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"` |
+| `GMAIL_QUERY_FILTER` | Mandatory Gmail filter, e.g. `(from:tec.mx OR to:you@tec.mx OR label:Tec)` |
+| `PRIORITY_SENDERS` | (Optional) comma-separated priority senders |
+| `ANTHROPIC_API_KEY` | Anthropic API key |
+| `ANTHROPIC_MODEL` | Model name (default `claude-sonnet-5-5`) |
+| `RESEND_API_KEY` | Resend API key |
+| `BRIEF_TO_EMAIL` | Address that receives the brief |
+| `BRIEF_FROM` | (Optional) sender; defaults to `Panel de Vida <onboarding@resend.dev>` |
+| `CRON_SECRET` | Long random secret protecting the cron endpoint |
 
-## Configuración de Supabase
+## Supabase setup
 
-1. Crea un proyecto en https://supabase.com.
-2. En **SQL Editor** ejecuta, en orden, los archivos de `supabase/migrations/`:
-   1. `20261123000000_init.sql` (tablas y RLS)
-   2. `20261123000100_grants.sql` (permisos de acceso para usuarios autenticados)
-3. **Authentication → Sign In / Providers → Google:** actívalo con tu Client ID y Secret de Google.
-4. **Authentication → URL Configuration:** en *Site URL* pon la URL de producción y en *Redirect URLs* agrega `https://TU-DOMINIO/**` y `http://localhost:3000/**`.
+1. Create a project at https://supabase.com.
+2. In the **SQL Editor**, run the files in `supabase/migrations/` in order:
+   1. `20261123000000_init.sql` (tables and RLS)
+   2. `20261123000100_grants.sql` (privileges for the `authenticated` role)
+3. **Authentication → Sign In / Providers → Google:** enable it with your Google Client ID and Secret.
+4. **Authentication → URL Configuration:** set the production *Site URL* and add `https://YOUR-DOMAIN/**` and `http://localhost:3000/**` to *Redirect URLs*.
 
-## Configuración de Google Cloud
+## Google Cloud setup
 
-1. Crea un proyecto y habilita **Google Calendar API** y **Gmail API**.
-2. **Google Auth Platform → Branding/Audience:** tipo **Externo**, estado **Testing**, y agrega tu correo como **usuario de prueba**.
-3. **Acceso a los datos:** agrega los scopes `calendar.readonly` y `gmail.readonly`.
-4. **Clientes → Crear cliente → Aplicación web.**
-   - Orígenes autorizados: `http://localhost:3000` y tu dominio de Vercel.
-   - URI de redireccionamiento autorizados:
-     - `https://TU-PROYECTO.supabase.co/auth/v1/callback`
+1. Create a project and enable the **Google Calendar API** and **Gmail API**.
+2. **Google Auth Platform → Audience:** user type **External**, publishing status **Testing**, and add yourself as a **test user**.
+3. **Data Access:** add the scopes `calendar.readonly` and `gmail.readonly`.
+4. **Clients → Create client → Web application.**
+   - Authorized JavaScript origins: `http://localhost:3000` and your Vercel domain.
+   - Authorized redirect URIs:
+     - `https://YOUR-PROJECT.supabase.co/auth/v1/callback`
      - `http://localhost:3000/api/google/callback`
-     - `https://TU-DOMINIO/api/google/callback`
+     - `https://YOUR-DOMAIN/api/google/callback`
 
-### ¿Por qué la app se queda en modo "Testing"?
+### Why the Google app stays in "Testing" mode
 
-Los scopes de Gmail (`gmail.readonly`) son **restringidos**: para publicar la app a usuarios públicos, Google exige una **verificación** (revisión de la app y, normalmente, una evaluación de seguridad externa de pago). Como esta app es de uso personal y de un solo usuario, no tiene sentido pasar por ese proceso: en modo *Testing* funciona con los usuarios de prueba que agregues.
+`gmail.readonly` is a **restricted scope**. Publishing an app that uses it to the general public requires Google's **verification** (an app review and, typically, a paid third-party security assessment). Since this is a personal, single-user tool, that process makes no sense: in *Testing* mode it works for the test users you add.
 
-**Consecuencia importante:** en modo Testing el *refresh token* de Google **caduca a los 7 días**. Cuando eso pase, la tarjeta *Conexiones* mostrará "No conectado" y el resumen matutino te avisará. Solo pulsa **Reconectar**.
+**Consequence:** in Testing mode Google's refresh token **expires after 7 days**. When that happens, the *Connections* card shows "Not connected" and the morning brief tells you so. Just click **Reconnect**.
 
-## Seguridad
+## Deploying to Vercel
 
-- Permisos de Google **solo de lectura** (`calendar.readonly`, `gmail.readonly`).
-- El refresh token se guarda **cifrado** (AES-256-GCM) en `integrations`, con RLS por `user_id`.
-- Todas las tablas tienen **RLS**: cada fila solo es visible para su dueño.
-- Gmail siempre se consulta con `GMAIL_QUERY_FILTER` en el parámetro `q`. El permiso de Google no se puede limitar por remitente, así que ese límite lo hace cumplir el código.
-- `/api/cron/daily-brief` valida `CRON_SECRET` en **cada** ejecución.
-- Ninguna llave vive en el código: todo está en variables de entorno.
+1. Push the repository to GitHub.
+2. In https://vercel.com → **Add New → Project**, import the repository.
+3. Add every variable from the table under **Environment Variables** (use your real domain in `GOOGLE_REDIRECT_URI`).
+4. **Deploy**, then add the production domain to Google Cloud and Supabase (see above) and redeploy.
 
-## Despliegue en Vercel
+### Morning brief schedule
 
-1. Sube el repositorio a GitHub.
-2. En https://vercel.com → **Add New → Project**, importa el repositorio.
-3. En **Environment Variables** carga todas las de la tabla (usa tu dominio real en `GOOGLE_REDIRECT_URI`).
-4. **Deploy.**
-5. Actualiza en Google Cloud, Supabase y `GOOGLE_REDIRECT_URI` el dominio de producción (ver arriba) y vuelve a desplegar.
+`vercel.json` schedules `0 0 * * *` (UTC), which is **8:00 AM in Hong Kong** (UTC+8, no daylight saving). If you change time zone, convert the hour to UTC and edit that value.
 
-### Hora del resumen (cron)
+Vercel automatically sends `Authorization: Bearer <CRON_SECRET>` to cron invocations when `CRON_SECRET` is set. On the Hobby plan the job may run at any point within the scheduled hour, not at the exact minute.
 
-`vercel.json` programa `0 0 * * *` (UTC), que equivale a las **8:00 a. m. de Hong Kong** (UTC+8, sin horario de verano). Si cambias de zona horaria, convierte la hora a UTC y edita ese valor.
+To test it by hand, use the **Enviar resumen ahora** (Send brief now) button on the page.
 
-Vercel agrega automáticamente `Authorization: Bearer <CRON_SECRET>` a las llamadas del cron cuando `CRON_SECRET` está definido. En el plan Hobby el cron puede ejecutarse en cualquier momento dentro de la hora programada (no al minuto exacto).
+## Scripts
 
-Para probarlo a mano: usa el botón **Enviar resumen ahora** de la página.
-
-## Comandos
-
-```powershell
-npm run dev     # desarrollo
-npm run build   # compilación de producción
-npx tsc --noEmit
-npx eslint src
+```bash
+npm run dev       # development server
+npm run build     # production build
+npx tsc --noEmit  # type check
+npx eslint src    # lint
 ```
 
-## Licencia
+## License
 
-[MIT](LICENSE). Proyecto personal; úsalo como referencia con libertad.
+[MIT](LICENSE)
