@@ -18,6 +18,16 @@ Aplicación web personal de **un solo usuario**: una página que junta tu calend
 | Alertas | Cruza correos, agenda y tareas |
 | Resumen matutino | Cron diario que genera el resumen con Claude y lo envía con Resend |
 
+## Capturas
+
+Tema oscuro (la app también tiene tema claro y un botón para cambiar). Los datos personales están tapados.
+
+![Hoy en una línea y agenda](docs/screenshots/agenda.png)
+![Clasificación de correos](docs/screenshots/correos.png)
+![Tareas](docs/screenshots/tareas.png)
+![Alertas cruzadas](docs/screenshots/alertas.png)
+![Resumen matutino](docs/screenshots/resumen.png)
+
 ## Instalación local
 
 Requisitos: Node 20 o superior, npm y Git.
@@ -44,6 +54,8 @@ Abre http://localhost:3000.
 | `ENCRYPTION_KEY` | 32 bytes en base64 para cifrar el refresh token. Genérala con: `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"` |
 | `GMAIL_QUERY_FILTER` | Filtro obligatorio de Gmail, p. ej. `(from:tec.mx OR to:tu@tec.mx OR label:Tec)`. Si falta, no se lee nada |
 | `PRIORITY_SENDERS` | (Opcional) remitentes prioritarios separados por coma |
+| `TEC_ICS_URL` | (Opcional) URL de una suscripción `.ics`, que se lee directamente sin esperar a que Google la sincronice (Google puede tardar 12 a 24 h o más en refrescar calendarios suscritos). **Trátala como secreto**: quien tenga la URL puede leer el calendario |
+| `TEC_CALENDAR_NAME` | (Opcional) Nombre, en Google Calendar, del calendario que reemplaza `TEC_ICS_URL`. Solo se omite si la lectura directa funcionó, así los eventos no se duplican |
 | `ANTHROPIC_API_KEY` | Llave de la API de Anthropic |
 | `ANTHROPIC_MODEL` | Modelo (por defecto `claude-sonnet-5-5`) |
 | `RESEND_API_KEY` | Llave de Resend |

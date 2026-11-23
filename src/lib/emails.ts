@@ -112,7 +112,8 @@ export async function loadEmails(
       ...t,
       categoria,
       resumen: row?.resumen_una_linea ?? t.asunto,
-      fechaLimite: row?.fecha_limite_detectada ?? null,
+      // La columna es timestamptz ("2026-11-24T00:00:00+00:00"): se conserva solo la fecha.
+      fechaLimite: row?.fecha_limite_detectada?.slice(0, 10) ?? null,
     };
     (categoria === "responder_hoy" ? out.responderHoy : out.esperando).push(item);
   }

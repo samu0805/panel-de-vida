@@ -5,6 +5,7 @@ import { BriefSection } from "@/components/brief-section";
 import { ConnectionsSection } from "@/components/connections-section";
 import { EmailsSection } from "@/components/emails-section";
 import { TasksSection } from "@/components/tasks-section";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { TodayLine } from "@/components/today-line";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -26,11 +27,14 @@ export default function Home({
     <main className="mx-auto max-w-3xl space-y-6 p-4 sm:p-8">
       <header className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Panel de Vida</h1>
-        <form action="/auth/signout" method="post">
-          <Button type="submit" variant="outline" size="sm">
-            Salir
-          </Button>
-        </form>
+        <div className="flex gap-2">
+          <ThemeToggle />
+          <form action="/auth/signout" method="post">
+            <Button type="submit" variant="outline" size="sm">
+              Salir
+            </Button>
+          </form>
+        </div>
       </header>
 
       <Suspense fallback={<Loading label="Preparando tu día…" />}>

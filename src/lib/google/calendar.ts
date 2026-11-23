@@ -33,6 +33,12 @@ type GEvent = {
   conferenceData?: { entryPoints?: { entryPointType?: string; uri?: string }[] };
 };
 
+/** Clave para detectar el mismo evento aunque llegue por dos caminos (Google y .ics). */
+export function eventKey(uid: string, inicio: string): string {
+  const t = /T/.test(inicio) ? String(new Date(inicio).getTime()) : inicio;
+  return `${uid}|${t}`;
+}
+
 async function gget<T>(accessToken: string, url: string): Promise<T> {
   const res = await fetch(url, {
     headers: { Authorization: `Bearer ${accessToken}` },
@@ -42,7 +48,7 @@ async function gget<T>(accessToken: string, url: string): Promise<T> {
   return (await res.json()) as T;
 }
 
-const VIDEO_RE = /https?:\/\/[^\s"<>]*(zoom\.us|meet\.google\.com|teams\.microsoft\.com|teams\.live\.com|webex\.com)[^\s"<>]*/i;
+export const VIDEO_RE =/https?:\/\/[^\s"<>]*(zoom\.us|meet\.google\.com|teams\.microsoft\.com|teams\.live\.com|webex\.com)[^\s"<>]*/i;
 
 function videoLink(ev: GEvent): string | null {
   if (ev.hangoutLink) return ev.hangoutLink;
@@ -60,12 +66,19 @@ export async function fetchEvents(
   accessToken: string,
   timeMin: Date,
   timeMax: Date,
+  opts: { excludeCalendarNames?: string[] } = {},
 ): Promise<CalEvent[]> {
   const list = await gget<{ items?: GCalendar[] }>(
     accessToken,
     `${BASE}/users/me/calendarList?maxResults=250`,
   );
-  const calendars = (list.items ?? []).filter((c) => !c.deleted && (c.selected || c.primary));
+  const excluded = (opts.excludeCalendarNames ?? []).map((n) => n.toLowerCase());
+  const calendars = (list.items ?? []).filter(
+    (c) =>
+      !c.deleted &&
+      (c.selected || c.primary) &&
+      !excluded.includes((c.summaryOverride ?? c.summary ?? c.id).toLowerCase()),
+  );
 
   const perCalendar = await Promise.all(
     calendars.map(async (cal) => {
@@ -98,7 +111,7 @@ export async function fetchEvents(
     if (!inicio || !fin) continue;
 
     const uid = ev.iCalUID ?? ev.id;
-    const dedupKey = `${uid}|${inicio}`;
+    const dedupKey = eventKey(uid, inicio);
     if (seen.has(dedupKey)) continue; // misma invitación en dos calendarios
     seen.add(dedupKey);
 

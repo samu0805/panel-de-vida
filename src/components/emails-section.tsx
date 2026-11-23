@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getEmailsData } from "@/lib/data";
 import type { EmailItem, EmailsResult } from "@/lib/emails";
 import { NeedsReconnectError } from "@/lib/google/tokens";
+import { formatDayLabel } from "@/lib/time";
 
 function EmailCard({ item }: { item: EmailItem }) {
   return (
@@ -18,7 +19,7 @@ function EmailCard({ item }: { item: EmailItem }) {
       </a>
       <p className="mt-1 text-xs text-muted-foreground">
         {item.remitente} · {item.asunto}
-        {item.fechaLimite ? ` · fecha detectada: ${item.fechaLimite}` : ""}
+        {item.fechaLimite ? ` · fecha detectada: ${formatDayLabel(item.fechaLimite)}` : ""}
       </p>
     </li>
   );

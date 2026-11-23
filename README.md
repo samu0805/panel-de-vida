@@ -19,6 +19,16 @@ A personal, **single-user** web app: one page that pulls together my Google Cale
 | Alerts | Cross-source checks: emails mentioning a date that is not on the calendar, meetings without link or description, tasks due today without enough free time, days with more than 6 h of meetings |
 | Morning brief | A daily cron job generates a short summary with Claude and emails it via Resend. A button lets you trigger it manually |
 
+## Screenshots
+
+Dark theme (the app also has a light theme and a toggle). Personal data is masked.
+
+![Today in one line and agenda](docs/screenshots/agenda.png)
+![Email classification](docs/screenshots/correos.png)
+![Tasks](docs/screenshots/tareas.png)
+![Cross-source alerts](docs/screenshots/alertas.png)
+![Morning brief](docs/screenshots/resumen.png)
+
 ## Architecture
 
 ```
@@ -66,6 +76,8 @@ Open http://localhost:3000.
 | `ENCRYPTION_KEY` | 32 random bytes, base64. Generate with `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"` |
 | `GMAIL_QUERY_FILTER` | Mandatory Gmail filter, e.g. `(from:tec.mx OR to:you@tec.mx OR label:Tec)` |
 | `PRIORITY_SENDERS` | (Optional) comma-separated priority senders |
+| `TEC_ICS_URL` | (Optional) URL of an `.ics` calendar subscription, read directly instead of waiting for Google to sync it (Google can take 12–24 h or more to refresh subscribed calendars). **Treat it as a secret**: anyone with the URL can read the calendar |
+| `TEC_CALENDAR_NAME` | (Optional) Name, in Google Calendar, of the calendar that `TEC_ICS_URL` replaces. It is skipped only when the direct read succeeds, so events never appear twice |
 | `ANTHROPIC_API_KEY` | Anthropic API key |
 | `ANTHROPIC_MODEL` | Model name (default `claude-sonnet-5-5`) |
 | `RESEND_API_KEY` | Resend API key |

@@ -1,7 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { dayRange } from "@/lib/agenda";
 import { loadEmails, type EmailsResult } from "@/lib/emails";
-import { fetchEvents, type CalEvent } from "@/lib/google/calendar";
+import { fetchAllEvents } from "@/lib/events";
+import type { CalEvent } from "@/lib/google/calendar";
 import { getAccessToken, markSynced, NeedsReconnectError } from "@/lib/google/tokens";
 import type { Task } from "@/lib/tasks";
 import { dateKey } from "@/lib/time";
@@ -34,7 +35,7 @@ export async function collectSnapshot(
 
   try {
     const token = await getAccessToken(supabase, userId);
-    const events = await fetchEvents(token, timeMin, timeMax);
+    const events = await fetchAllEvents(token, timeMin, timeMax);
     await markSynced(supabase, userId);
     let emails: EmailsResult | null = null;
     try {

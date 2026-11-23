@@ -1,7 +1,7 @@
 import { cache } from "react";
 import { dayRange } from "@/lib/agenda";
 import { loadEmails } from "@/lib/emails";
-import { fetchEvents } from "@/lib/google/calendar";
+import { fetchAllEvents } from "@/lib/events";
 import { getAccessToken, markSynced } from "@/lib/google/tokens";
 import { createClient } from "@/lib/supabase/server";
 import type { Task } from "@/lib/tasks";
@@ -35,7 +35,7 @@ export const getEventsData = cache(async () => {
   const token = await getToken();
   const now = new Date();
   const { days, timeMin, timeMax } = dayRange(dateKey(now), DATA_DAYS);
-  const events = await fetchEvents(token, timeMin, timeMax);
+  const events = await fetchAllEvents(token, timeMin, timeMax);
   await markSynced(supabase, user.id);
   return { now, days, events };
 });
